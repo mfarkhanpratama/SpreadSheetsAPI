@@ -107,19 +107,16 @@ export class GoogleSheetsController {
 
     try {
       // Define your spreadsheet IDs
-      const bridgingSpreadsheetId =
-        '1u_hydYPTe9adrXJIC8E1Ww8MWmbzaLmnEl2_hvz0Qns';
+      const bridgingSpreadsheetId = process.env.BRIDGING_SPREADSHEET_ID!;
       const bridgingBpjsSpreadsheetId =
-        '1QHRrKX1XnzdFnG1jrbSqgRdLdxpXKexQKstO5xKoysQ';
+        process.env.BRIDGING_BPJS_SPREADSHEET_ID!;
       const bridgingSatuSehatSpreadsheetId =
-        '1KRh_T3K8wlivws7vFycaqjn3o4sXyzPkvCBqb5OYOI8';
+        process.env.BRIDGING_SATU_SEHAT_SPREADSHEET_ID!;
 
       // Define the database URLs
-      const databases = [
-        {host: 'http://localhost:3001', name: 'app'},
-        {host: 'http://localhost:3002', name: 'denta'},
-        {host: 'http://localhost:3003', name: 'clinica'},
-      ];
+      const databases = process.env
+        .DATABASES_HOSTS!.split(',')
+        .map(host => ({host, name: host.split('//')[1].split(':')[0]}));
       const endpoints = ['bridging', 'bpjs', 'sehat'];
 
       // Initialize data containers
@@ -133,71 +130,93 @@ export class GoogleSheetsController {
       // Fetch data from each endpoint of each database
       for (const db of databases) {
         for (const endpoint of endpoints) {
-          const response = await axios.get(`${db.host}/api/${endpoint}`);
-          const data = response.data;
-          switch (endpoint) {
-            case 'bridging':
-              bridgingData.push(...(data as BridgingDataItem[])); // Cast to BridgingDataItem[]
-              break;
-            case 'bpjs':
-              bridgingBpjsData.Weekly.push(
-                ...(data.Weekly as WeeklyBpjsData[]),
-              );
-              bridgingBpjsData.Alltime.push(
-                ...(data.Alltime as AlltimeBpjsData[]),
-              );
-              break;
-            case 'sehat':
-              bridgingSatuSehatData.Weekly.push(
-                ...(data.Weekly as WeeklySatuSehatData[]),
-              );
-              bridgingSatuSehatData.Alltime.push(
-                ...(data.Alltime as AlltimeSatuSehatData[]),
-              );
-              break;
+          try {
+            const response = await axios.get(`${db.host}/api/${endpoint}`);
+            const data = response.data;
+            switch (endpoint) {
+              case 'bridging':
+                bridgingData.push(...(data as BridgingDataItem[])); // Cast to BridgingDataItem[]
+                break;
+              case 'bpjs':
+                bridgingBpjsData.Weekly.push(
+                  ...(data.Weekly as WeeklyBpjsData[]),
+                );
+                bridgingBpjsData.Alltime.push(
+                  ...(data.Alltime as AlltimeBpjsData[]),
+                );
+                break;
+              case 'sehat':
+                bridgingSatuSehatData.Weekly.push(
+                  ...(data.Weekly as WeeklySatuSehatData[]),
+                );
+                bridgingSatuSehatData.Alltime.push(
+                  ...(data.Alltime as AlltimeSatuSehatData[]),
+                );
+                break;
+            }
+          } catch (err) {
+            logger.error(
+              `Error fetching data from ${db.host}/api/${endpoint}: ${err.message}`,
+            );
+            console.error('Error details:', err.message, err.stack);
+            throw err;
           }
         }
       }
 
-      // 7 hari sebelum api di call
+      // Get current date and date 7 days ago for weekly sheet name
       const today = new Date();
       const sevenDaysAgo = subDays(today, 7);
-      const sheetName = `${format(sevenDaysAgo, 'd')} - ${format(today, 'd MMMM yyyy', {locale: enUS})}`;
+      const sheetNameWeekly = `${format(sevenDaysAgo, 'd')} - ${format(today, 'd MMMM yyyy', {locale: enUS})}`;
+      const sheetNameAlltime = `All Time (${format(today, 'd MMMM yyyy', {locale: enUS})})`;
+      const sheetNameBridging = `Bridging (${format(today, 'd MMMM yyyy', {locale: enUS})})`;
 
-      // membuat new sheet baru untuk weekly
+      // Create new sheet for weekly data
       await this.googleSheetsService.createSheet(
         bridgingBpjsSpreadsheetId,
-        sheetName,
+        sheetNameWeekly,
       );
       await this.googleSheetsService.createSheet(
         bridgingSatuSehatSpreadsheetId,
-        sheetName,
+        sheetNameWeekly,
+      );
+      await this.googleSheetsService.createSheet(
+        bridgingSpreadsheetId,
+        sheetNameBridging,
+      );
+      await this.googleSheetsService.createSheet(
+        bridgingBpjsSpreadsheetId,
+        sheetNameAlltime,
+      );
+      await this.googleSheetsService.createSheet(
+        bridgingSatuSehatSpreadsheetId,
+        sheetNameAlltime,
       );
 
       // Update different spreadsheets with respective data
       await this.googleSheetsService.appendData(
         bridgingSpreadsheetId,
-        'Bridging',
+        sheetNameBridging,
         bridgingData,
       );
       await this.googleSheetsService.appendData(
         bridgingBpjsSpreadsheetId,
-        sheetName,
+        sheetNameWeekly,
         bridgingBpjsData.Weekly,
       );
       await this.googleSheetsService.appendData(
         bridgingBpjsSpreadsheetId,
-        'Alltime',
+        sheetNameAlltime,
         bridgingBpjsData.Alltime,
       );
       await this.googleSheetsService.appendData(
         bridgingSatuSehatSpreadsheetId,
-        sheetName,
+        sheetNameWeekly,
         bridgingSatuSehatData.Weekly,
       );
       await this.googleSheetsService.appendData(
         bridgingSatuSehatSpreadsheetId,
-        'Alltime',
+        sheetNameAlltime,
         bridgingSatuSehatData.Alltime,
       );
 
@@ -205,6 +224,7 @@ export class GoogleSheetsController {
       logger.info('Data has been added to the sheets.');
     } catch (err) {
       logger.error('Error updating spreadsheets: %s', err.message);
+      console.error('Error details:', err.message, err.stack);
       res.send('Error updating spreadsheets');
     }
   }

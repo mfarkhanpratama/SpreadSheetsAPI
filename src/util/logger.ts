@@ -1,9 +1,15 @@
+import dotenv from 'dotenv';
 import {createLogger, format, transports} from 'winston';
 import 'winston-mongodb';
 
-// Konfigurasi URL koneksi MongoDB Atlas Anda
-const mongoDbUrl =
-  'mongodb+srv://farkhan3123:cjSNvpVY1PxRx4mz@cluster0.qa2yr8q.mongodb.net/logging?retryWrites=true&w=majority&appName=Cluster0';
+dotenv.config();
+
+// Ensure mongoDbUrl is defined
+const mongoDbUrl = process.env.MONGODB_URL || '';
+
+if (!mongoDbUrl) {
+  throw new Error('MONGODB_URL is not defined in environment variables');
+}
 
 const logger = createLogger({
   level: 'info',
