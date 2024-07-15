@@ -1,9 +1,7 @@
 import {inject} from '@loopback/core';
-import {get, Request, Response, RestBindings} from '@loopback/rest';
+import {get, Response, RestBindings} from '@loopback/rest';
 import axios from 'axios';
 import {format, subDays} from 'date-fns';
-import {enUS} from 'date-fns/locale';
-import {oauth2Client, SCOPES} from '../config/google.config';
 import {GoogleSheetsService} from '../services/google-sheets.service';
 import logger from '../util/logger';
 
@@ -53,58 +51,14 @@ type BridgingSatuSehatData = {
   Alltime: AlltimeSatuSehatData[];
 };
 
-let authed = false;
-
 export class GoogleSheetsController {
   constructor(
     @inject('services.GoogleSheetsService')
     private googleSheetsService: GoogleSheetsService,
   ) {}
 
-  @get('/')
-  async main(@inject(RestBindings.Http.RESPONSE) res: Response) {
-    if (!authed) {
-      const url = oauth2Client.generateAuthUrl({
-        access_type: 'offline',
-        scope: SCOPES,
-      });
-      res.send(
-        `<h1>Google Sheets API with OAuth2</h1><a href="${url}">Login with Google</a>`,
-      );
-    } else {
-      res.send(
-        `<h1>Authenticated</h1><a href="/update-spreadsheet">Update Spreadsheet</a>`,
-      );
-    }
-  }
-
-  @get('/oauth2callback')
-  async oauth2callback(
-    @inject(RestBindings.Http.REQUEST) req: Request,
-    @inject(RestBindings.Http.RESPONSE) res: Response,
-  ) {
-    const code = req.query.code as string;
-    if (code) {
-      try {
-        const {tokens} = await oauth2Client.getToken(code);
-        oauth2Client.setCredentials(tokens);
-        authed = true;
-        res.redirect('/');
-        logger.info('User authenticated successfully.');
-      } catch (err) {
-        logger.error('Error getting oAuth tokens: %s', err.message);
-        res.send('Error during authentication');
-      }
-    }
-  }
-
-  @get('/update-spreadsheet')
+  @get('/spreadsheet')
   async updateSpreadsheet(@inject(RestBindings.Http.RESPONSE) res: Response) {
-    if (!authed) {
-      res.redirect('/');
-      return;
-    }
-
     try {
       // Define your spreadsheet IDs
       const bridgingSpreadsheetId = process.env.BRIDGING_SPREADSHEET_ID!;
@@ -158,7 +112,6 @@ export class GoogleSheetsController {
             logger.error(
               `Error fetching data from ${db.host}/api/${endpoint}: ${err.message}`,
             );
-            console.error('Error details:', err.message, err.stack);
             throw err;
           }
         }
@@ -167,11 +120,11 @@ export class GoogleSheetsController {
       // Get current date and date 7 days ago for weekly sheet name
       const today = new Date();
       const sevenDaysAgo = subDays(today, 7);
-      const sheetNameWeekly = `${format(sevenDaysAgo, 'd')} - ${format(today, 'd MMMM yyyy', {locale: enUS})}`;
-      const sheetNameAlltime = `All Time (${format(today, 'd MMMM yyyy', {locale: enUS})})`;
-      const sheetNameBridging = `Bridging (${format(today, 'd MMMM yyyy', {locale: enUS})})`;
+      const sheetNameWeekly = `${format(sevenDaysAgo, 'd')} - ${format(today, 'd MMMM yyyy')}`;
+      const sheetNameAlltime = `All Time (${format(today, 'd MMMM yyyy')})`;
+      const sheetNameBridging = `Bridging (${format(today, 'd MMMM yyyy')})`;
 
-      // Create new sheet for weekly data
+      // Create new sheet for weekly data with validation
       await this.googleSheetsService.createSheet(
         bridgingBpjsSpreadsheetId,
         sheetNameWeekly,
@@ -224,7 +177,6 @@ export class GoogleSheetsController {
       logger.info('Data has been added to the sheets.');
     } catch (err) {
       logger.error('Error updating spreadsheets: %s', err.message);
-      console.error('Error details:', err.message, err.stack);
       res.send('Error updating spreadsheets');
     }
   }

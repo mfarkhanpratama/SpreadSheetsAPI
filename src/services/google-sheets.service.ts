@@ -1,13 +1,13 @@
 import {BindingScope, injectable} from '@loopback/core';
 import {google} from 'googleapis';
-import {oauth2Client} from '../config/google.config';
+import {auth} from '../config/google.config';
 
 @injectable({scope: BindingScope.TRANSIENT})
 export class GoogleSheetsService {
   private sheets;
 
   constructor() {
-    this.sheets = google.sheets({version: 'v4', auth: oauth2Client});
+    this.sheets = google.sheets({version: 'v4', auth: auth});
   }
 
   async createSheet(spreadsheetId: string, sheetName: string) {
