@@ -1,6 +1,6 @@
 Sure, here is a concise `README.md` file with step-by-step instructions:
 
-```markdown
+````markdown
 # Spreadsheet API with Google Sheets and MongoDB Logging
 
 This project is a Node.js application that integrates with the Google Sheets API and logs data to MongoDB using Winston.
@@ -20,6 +20,7 @@ This project is a Node.js application that integrates with the Google Sheets API
 git clone https://github.com/mfarkhanpratama/SpreadSheetsAPI.git
 cd SpreadSheetsAPI
 ```
+````
 
 ### 2. Install Dependencies
 
@@ -42,10 +43,9 @@ DATABASES_HOSTS=http://localhost:3001,http://localhost:3002,http://localhost:300
 ### 4. Configure Google Cloud
 
 - Create a Google Cloud project.
-- Go to sidebar an Select the API AND SERVICES --> +Enable Google Sheets API and Google Drive API.
-- Create OAuth 2.0 credentials --> web application --> auth redirect `http://localhost:3000/oauth2callback` and download `client_id.json`.
-- Go to Oauth Consent Screen and add test Users with your gmail --> Edit your App --> add Dev Contact --> next --> add scopes which is all Google Drive Api `./auth/drive.file  , ../auth/drive , .../auth/drive.readonly ` and Google Sheets API `./auth/spreadsheets` --> save
-- Place `client_id.json` in the `root` directory.
+- Go to the API and Services section and enable the Google Sheets API and Google Drive API.
+- Create Service Account credentials, download the JSON file, and place it in the root directory as `service-account-key.json`.
+- Share the Google Sheet with the service account email (found in the JSON file).
 
 ### 5. MongoDB Setup
 
@@ -69,6 +69,7 @@ Navigate to `http://localhost:3000/update-spreadsheet` to update Google Sheets w
 ## Logging
 
 Logs are stored in local files and MongoDB:
+
 - `error.log`: Error level logs
 - `combined.log`: All logs
 - MongoDB: Logs stored in the `log` collection
